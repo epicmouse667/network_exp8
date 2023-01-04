@@ -31,8 +31,7 @@ class Connection():
                     break # when we find out of order seqno, quit and move on
 
         if self.debug:
-            print "Receiver.py:next seqno should be %d" % (self.current_seqno+1)
-
+            print("Receiver.py:next seqno should be %d" % (self.current_seqno+1))
         # note: we return the /next/ sequence number we're expecting
         if sackMode:
             for n in sorted(self.seqnums.keys()):
@@ -50,7 +49,7 @@ class Connection():
         self.outfile.close()
 
 class Receiver():
-    def __init__(self,listenport=33122,debug=False,timeout=10, sackMode=False):
+    def __init__(self,listenport=33122,debug=True,timeout=10, sackMode=False):
         self.debug = debug
         self.timeout = timeout
         self.sackMode = sackMode
@@ -73,17 +72,18 @@ class Receiver():
         while True:
             try:
                 message, address = self.receive()
+                message=message.decode()
                 msg_type, seqno, data, checksum = self._split_message(message)
                 try:
                     seqno = int(seqno)
                 except:
                     raise ValueError
                 if debug:
-                    print "Receiver.py: received %s|%d|%s|%s" % (msg_type, seqno, data[:5], checksum)
+                    print ("Receiver.py: received %s|%d|%s|%s" % (msg_type, seqno, data[:5], checksum))
                 if Checksum.validate_checksum(message):
                     self.MESSAGE_HANDLER.get(msg_type,self._handle_other)(seqno, data, address)
                 elif self.debug:
-                    print "Receiver.py: checksum failed: %s|%d|%s|%s" % (msg_type, seqno, data[:5], checksum)
+                    print ("Receiver.py: checksum failed: %s|%d|%s|%s" % (msg_type, seqno, data[:5], checksum))
 
                 if time.time() - self.last_cleanup > self.timeout:
                     self._cleanup()
@@ -91,9 +91,9 @@ class Receiver():
                 self._cleanup()
             except (KeyboardInterrupt, SystemExit):
                 exit()
-            except ValueError, e:
+            except ValueError as e:
                 if self.debug:
-                    print "Receiver.py:" + str(e)
+                    print ("Receiver.py:" + str(e))
                 pass # ignore
 
     # waits until packet is received to return
@@ -114,8 +114,8 @@ class Receiver():
         checksum = Checksum.generate_checksum(m)
         message = "%s%s" % (m, checksum)
         if self.debug:
-            print "Receiver.py: send ack %s" % m
-        self.send(message, address)
+            print ("Receiver.py: send ack %s" % m)
+        self.send(message.encode(), address)
 
     def _handle_start(self, seqno, data, address):
         if not address in self.connections:
@@ -145,8 +145,8 @@ class Receiver():
             conn = self.connections[address]
             ackno, res_data = conn.ack(seqno,data,self.sackMode)
             for l in res_data:
-                #if self.debug:
-                #    print l
+                if self.debug:
+                   print (l)
                 conn.record(l)
             self._send_ack(ackno, address)
 
@@ -167,25 +167,25 @@ class Receiver():
 
     def _cleanup(self):
         if self.debug:
-            print "Receiver.py: clean up time"
+            print ("Receiver.py: clean up time")
         now = time.time()
         for address in self.connections.keys():
             conn = self.connections[address]
             if now - conn.updated > self.timeout:
                 if self.debug:
-                    print "Receiver.py: killed connection to %s (%.2f old)" % (address, now - conn.updated)
+                    print ("Receiver.py: killed connection to %s (%.2f old)" % (address, now - conn.updated))
                 conn.end()
                 del self.connections[address]
         self.last_cleanup = now
 
 if __name__ == "__main__":
     def usage():
-        print "RUDP Receiver"
-        print "-p PORT | --port=PORT The listen port, defaults to 33122"
-        print "-t TIMEOUT | --timeout=TIMEOUT Receiver timeout in seconds"
-        print "-d | --debug Print debug messages"
-        print "-h | --help Print this usage message"
-        print "-k | --sack Enable selective acknowledgement mode"
+        print ("RUDP Receiver")
+        print ("-p PORT | --port=PORT The listen port, defaults to 33122")
+        print ("-t TIMEOUT | --timeout=TIMEOUT Receiver timeout in seconds")
+        print ("-d | --debug Print debug messages")
+        print ("-h | --help Print this usage message")
+        print ("-k | --sack Enable selective acknowledgement mode")
 
     try:
         opts, args = getopt.getopt(sys.argv[1:],
@@ -209,7 +209,7 @@ if __name__ == "__main__":
         elif o in ("-k", "--sack="):
             sackMode = True
         else:
-            print usage()
+            print (usage())
             exit()
     r = Receiver(port, debug, timeout, sackMode)
     r.start()
